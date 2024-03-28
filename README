@@ -1,0 +1,13 @@
+Configure an Oracle Cloud Instance Free VM to host small flask / django 
+applications.
+
+Build the infrastructure using Terraform. The terraform scripts are mostly the 
+example from Oracle, trimmed to drop anything I didn't think I needed. They 
+create a single VM, hosted on Oracle Cloud Infrastructure (OCI), using its 
+"always free" tier.
+
+TODO:
+- VM is created and assigned an IP. Should store that in myhosts, or track it
+  in some way that is less goofy.
+- Set up a DNS of some sort?
+

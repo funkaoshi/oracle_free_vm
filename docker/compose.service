@@ -1,0 +1,16 @@
+[Unit]
+Description=Docker Compose Application Service
+Requires=docker.service
+After=docker.service
+
+[Service]
+WorkingDirectory=/home/ubuntu/oracle_free_vm/docker/
+ExecStart=/usr/bin/docker-compose up
+ExecStop=/usr/bin/docker-compose down
+ExecRestart=/usr/bin/docker-compose restart
+TimeoutStartSec=0
+Restart=always
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target

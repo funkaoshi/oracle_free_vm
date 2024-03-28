@@ -86,28 +86,18 @@ resource "oci_core_security_list" "alwaysfree_security_list" {
     source   = "0.0.0.0/0"
 
     tcp_options {
-      max = "3000"
-      min = "3000"
-    }
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-
-    tcp_options {
-      max = "3005"
-      min = "3005"
-    }
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-
-    tcp_options {
       max = "80"
       min = "80"
+    }
+  }
+
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+
+    tcp_options {
+      max = "443"
+      min = "443"
     }
   }
 }
@@ -117,8 +107,8 @@ resource "oci_core_security_list" "alwaysfree_security_list" {
 resource "oci_core_instance" "alwaysfree_instance" {
   availability_domain = data.oci_identity_availability_domain.ad.name
   compartment_id      = var.compartment_ocid
-  display_name        = "Always Free Instance"
   shape               = var.instance_shape
+  display_name        = "Always Free Instance"
 
   shape_config {
     ocpus = var.instance_ocpus
@@ -134,52 +124,13 @@ resource "oci_core_instance" "alwaysfree_instance" {
 
   source_details {
     source_type = "image"
-    source_id   = lookup(data.oci_core_images.alwaysfree_images.images[0], "id")
+    source_id   = lookup(data.oci_core_images.ubuntu_images.images[0], "id")
   }
 
   metadata = {
-    ssh_authorized_keys = (var.ssh_public_key != "") ? var.ssh_public_key : tls_private_key.compute_ssh_key.public_key_openssh
+    ssh_authorized_keys = file(var.ssh_public_key_path)
   }
 }
-
-resource "tls_private_key" "compute_ssh_key" {
-  algorithm = "RSA"
-  rsa_bits  = 2048
-}
-
-output "generated_private_key_pem" {
-  value     = (var.ssh_public_key != "") ? var.ssh_public_key : tls_private_key.compute_ssh_key.private_key_pem
-  sensitive = true
-}
-
-resource "tls_private_key" "alwaysfree_private_key" {
-  algorithm   = "ECDSA"
-  ecdsa_curve = "P384"
-}
-
-resource "tls_self_signed_cert" "alwaysfree_cert" {
-  private_key_pem = tls_private_key.alwaysfree_private_key.private_key_pem
-
-  subject {
-    organization = "Oracle"
-    country = "US"
-    locality = "Austin"
-    province = "TX"
-  }
-
-  validity_period_hours = 8760 # 1 year
-
-  allowed_uses = [
-    "key_encipherment",
-    "digital_signature",
-    "server_auth",
-    "client_auth",
-    "cert_signing"
-  ]
-
-  is_ca_certificate = true
-}
-
 
 data "oci_core_vnic_attachments" "app_vnics" {
   compartment_id      = var.compartment_ocid
@@ -192,15 +143,16 @@ data "oci_core_vnic" "app_vnic" {
 }
 
 # See https://docs.oracle.com/iaas/images/
-data "oci_core_images" "alwaysfree_images" {
-  compartment_id           = var.compartment_ocid
-  operating_system         = "Oracle Linux"
-  operating_system_version = "9"
+data "oci_core_images" "ubuntu_images" {
+  compartment_id           = var.tenancy_ocid
+  operating_system         = "Canonical Ubuntu"
+  operating_system_version = "22.04"
   shape                    = var.instance_shape
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
 }
 
-output "app" {
-  value = "http://${data.oci_core_vnic.app_vnic.public_ip_address}"
+output "worker_node_ip" {
+    description = "IP of worker node"
+    value = oci_core_instance.alwaysfree_instance.public_ip
 }

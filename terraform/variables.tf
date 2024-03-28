@@ -8,4 +8,4 @@ variable "region" {
     default = "ca-toronto-1"
 }
 
-variable "ssh_public_key" {}
+variable "ssh_public_key_path" {}
