@@ -22,5 +22,17 @@ services:
   funkaoshi-randomcharacter:
     image: funkaoshi/randomcharacter:latest
     ports:
-      - "8000:8000"
+      - 8000
+    restart: unless-stopped
+
+  funkaoshi-lotfp-summon:
+    image: funkaoshi/lotfp-summon:latest
+    ports:
+      - 8001
+    restart: unless-stopped
+
+  funkaoshi-randomcarcosa:
+    image: funkaoshi/randomcarcosa:latest
+    ports:
+      - 8002
     restart: unless-stopped

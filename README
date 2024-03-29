@@ -6,8 +6,14 @@ example from Oracle, trimmed to drop anything I didn't think I needed. They
 create a single VM, hosted on Oracle Cloud Infrastructure (OCI), using its 
 "always free" tier.
 
-TODO:
-- VM is created and assigned an IP. Should store that in myhosts, or track it
-  in some way that is less goofy.
-- Set up a DNS of some sort?
+
+To Do / To Research:
+
+- VM is created and assigned an IP. How do people actually manage DNS with
+  these sorts of setups? (Point domain name to load balancer you never touch?)
+- The nginx conf file seems goofy. Check out something like nginx-proxy?
+- Is there a way for each container to use the same port. It's weird they bind
+  on the host. I might be doing something wrong.
+- bootstrapping the certs with certbot was goofy, I had to edit the nginx conf
+  file. That can't be how people do this.
 
