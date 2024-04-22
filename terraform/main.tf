@@ -14,9 +14,9 @@ variable "instance_shape" {
   default = "VM.Standard.E2.1.Micro" 
 }
 
-variable "instance_ocpus" { default = 4 }
+variable "instance_ocpus" { default = 1 }
 
-variable "instance_shape_config_memory_in_gbs" { default = 24 }
+variable "instance_shape_config_memory_in_gbs" { default = 1 }
 
 data "oci_identity_availability_domain" "ad" {
   compartment_id = var.tenancy_ocid
@@ -104,6 +104,26 @@ resource "oci_core_security_list" "alwaysfree_security_list" {
 
 /* Instances */
 
+data "oci_core_vnic_attachments" "app_vnics" {
+  compartment_id      = var.compartment_ocid
+  availability_domain = data.oci_identity_availability_domain.ad.name
+  instance_id         = oci_core_instance.alwaysfree_instance.id
+}
+
+data "oci_core_vnic" "app_vnic" {
+  vnic_id = data.oci_core_vnic_attachments.app_vnics.vnic_attachments[0]["vnic_id"]
+}
+
+# See https://docs.oracle.com/iaas/images/
+data "oci_core_images" "ubuntu_images" {
+  compartment_id           = var.tenancy_ocid
+  operating_system         = "Canonical Ubuntu"
+  operating_system_version = "22.04"
+  shape                    = var.instance_shape
+  sort_by                  = "TIMECREATED"
+  sort_order               = "DESC"
+}
+
 resource "oci_core_instance" "alwaysfree_instance" {
   availability_domain = data.oci_identity_availability_domain.ad.name
   compartment_id      = var.compartment_ocid
@@ -132,27 +152,39 @@ resource "oci_core_instance" "alwaysfree_instance" {
   }
 }
 
-data "oci_core_vnic_attachments" "app_vnics" {
-  compartment_id      = var.compartment_ocid
+resource "oci_core_instance" "strigil_instance" {
   availability_domain = data.oci_identity_availability_domain.ad.name
-  instance_id         = oci_core_instance.alwaysfree_instance.id
-}
+  compartment_id      = var.compartment_ocid
+  shape               = "VM.Standard.A1.Flex"
+  display_name        = "Strigil"
 
-data "oci_core_vnic" "app_vnic" {
-  vnic_id = data.oci_core_vnic_attachments.app_vnics.vnic_attachments[0]["vnic_id"]
-}
+  shape_config {
+    ocpus = 2
+    memory_in_gbs = 12
+  }
 
-# See https://docs.oracle.com/iaas/images/
-data "oci_core_images" "ubuntu_images" {
-  compartment_id           = var.tenancy_ocid
-  operating_system         = "Canonical Ubuntu"
-  operating_system_version = "22.04"
-  shape                    = var.instance_shape
-  sort_by                  = "TIMECREATED"
-  sort_order               = "DESC"
+  create_vnic_details {
+    subnet_id        = oci_core_subnet.alwaysfree_subnet.id
+    display_name     = "strigilvnic"
+    assign_public_ip = true
+    hostname_label   = "strigil"
+  }
+
+  source_details {
+    source_type = "image"
+    source_id   = "ocid1.image.oc1.ca-toronto-1.aaaaaaaaajux5ratvhucoke2kdhjf4awfmhmrbsendcd34lbwjwybmodow6q"
+  }
+
+  metadata = {
+    ssh_authorized_keys = file(var.ssh_public_key_path)
+  }
 }
 
 output "worker_node_ip" {
-    description = "IP of worker node"
+    description = "IP of VM Instance"
     value = oci_core_instance.alwaysfree_instance.public_ip
+}
+output "strigil_node_ip" {
+    description = "IP of Ampere Instance"
+    value = oci_core_instance.strigil_instance.public_ip
 }
