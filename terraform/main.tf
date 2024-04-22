@@ -1,7 +1,6 @@
 // Copyright (c) 2017, 2024, Oracle and/or its affiliates. All rights reserved.
 // Licensed under the Mozilla Public License v2.0
 
-
 provider "oci" {
   region           = var.region
   tenancy_ocid     = var.tenancy_ocid
@@ -9,14 +8,6 @@ provider "oci" {
   fingerprint      = var.fingerprint
   private_key_path = var.private_key_path
 }
-
-variable "instance_shape" {
-  default = "VM.Standard.E2.1.Micro" 
-}
-
-variable "instance_ocpus" { default = 1 }
-
-variable "instance_shape_config_memory_in_gbs" { default = 1 }
 
 data "oci_identity_availability_domain" "ad" {
   compartment_id = var.tenancy_ocid
@@ -114,25 +105,15 @@ data "oci_core_vnic" "app_vnic" {
   vnic_id = data.oci_core_vnic_attachments.app_vnics.vnic_attachments[0]["vnic_id"]
 }
 
-# See https://docs.oracle.com/iaas/images/
-data "oci_core_images" "ubuntu_images" {
-  compartment_id           = var.tenancy_ocid
-  operating_system         = "Canonical Ubuntu"
-  operating_system_version = "22.04"
-  shape                    = var.instance_shape
-  sort_by                  = "TIMECREATED"
-  sort_order               = "DESC"
-}
-
 resource "oci_core_instance" "alwaysfree_instance" {
   availability_domain = data.oci_identity_availability_domain.ad.name
   compartment_id      = var.compartment_ocid
-  shape               = var.instance_shape
+  shape               = "VM.Standard.A1.Flex"
   display_name        = "Always Free Instance"
 
-  shape_config {
-    ocpus = var.instance_ocpus
-    memory_in_gbs = var.instance_shape_config_memory_in_gbs
+ shape_config {
+    ocpus = 2
+    memory_in_gbs = 12
   }
 
   create_vnic_details {
@@ -142,9 +123,10 @@ resource "oci_core_instance" "alwaysfree_instance" {
     hostname_label   = "alwaysfreeinstance"
   }
 
+  # ubuntu 22.04
   source_details {
     source_type = "image"
-    source_id   = lookup(data.oci_core_images.ubuntu_images.images[0], "id")
+    source_id   = "ocid1.image.oc1.ca-toronto-1.aaaaaaaaajux5ratvhucoke2kdhjf4awfmhmrbsendcd34lbwjwybmodow6q"
   }
 
   metadata = {
@@ -170,6 +152,7 @@ resource "oci_core_instance" "strigil_instance" {
     hostname_label   = "strigil"
   }
 
+  # ubuntu 22.04
   source_details {
     source_type = "image"
     source_id   = "ocid1.image.oc1.ca-toronto-1.aaaaaaaaajux5ratvhucoke2kdhjf4awfmhmrbsendcd34lbwjwybmodow6q"
