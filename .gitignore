@@ -1,5 +1,7 @@
 env-vars.sh
+.env*
 **/.terraform*
 **/*.tfstate*
 
 certbot
+data
