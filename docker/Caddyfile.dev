@@ -1,0 +1,46 @@
+character.local {
+    handle /static/* {
+        uri strip_prefix /static
+        root * /srv/character
+        file_server
+    }
+    handle {
+        reverse_proxy funkaoshi-randomcharacter:8000
+    }
+}
+
+summon.local {
+    handle /static/* {
+        uri strip_prefix /static
+        root * /srv/summon
+        file_server
+    }
+    handle {
+        reverse_proxy funkaoshi-lotfp-summon:8001
+    }
+}
+
+carcosa.local {
+    handle /1807* {
+        root * /srv/carcosa
+        file_server
+    }
+    handle /704-yards* {
+        root * /srv/carcosa
+        file_server
+    }
+    handle /sorceress-rituals* {
+        root * /srv/carcosa
+        file_server
+    }
+    handle {
+        reverse_proxy funkaoshi-randomcarcosa:8002
+    }
+}
+
+linkding.local {
+    request_body {
+        max_size 5MB
+    }
+    reverse_proxy linkding:9090
+}
