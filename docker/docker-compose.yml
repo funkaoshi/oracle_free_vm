@@ -1,5 +1,3 @@
-version: "3.8"
-
 volumes:
   carcosa-volume:
   character-volume:
@@ -49,5 +47,6 @@ services:
     volumes:
       - "${LD_HOST_DATA_DIR:-./data}:/etc/linkding/data"
     env_file:
-      - .env-linkding
+      - path: .env-linkding
+        required: false
     restart: unless-stopped
