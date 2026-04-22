@@ -1,5 +1,5 @@
-restart-nginx:
-	docker compose kill -s HUP nginx
+reload-caddy:
+	docker compose kill -s USR1 caddy
 
-restart-nginx-dev:
-	docker compose -f docker-compose-dev.yml kill -s HUP nginx
+reload-caddy-dev:
+	docker compose -f docker-compose-dev.yml kill -s USR1 caddy
