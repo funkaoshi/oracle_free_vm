@@ -46,7 +46,5 @@ services:
     image: sissbruecker/linkding:latest
     volumes:
       - "${LD_HOST_DATA_DIR:-./data}:/etc/linkding/data"
-    env_file:
-      - path: .env-linkding
-        required: false
+    env_file: .env-linkding
     restart: unless-stopped
