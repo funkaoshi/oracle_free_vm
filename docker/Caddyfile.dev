@@ -37,10 +37,3 @@ carcosa.local {
         reverse_proxy funkaoshi-randomcarcosa:8002
     }
 }
-
-linkding.local {
-    request_body {
-        max_size 5MB
-    }
-    reverse_proxy linkding:9090
-}

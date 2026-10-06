@@ -41,10 +41,3 @@ services:
     volumes:
       - carcosa-volume:/app/static
     restart: unless-stopped
-
-  linkding:
-    image: sissbruecker/linkding:latest
-    volumes:
-      - "${LD_HOST_DATA_DIR:-./data}:/etc/linkding/data"
-    env_file: .env-linkding
-    restart: unless-stopped

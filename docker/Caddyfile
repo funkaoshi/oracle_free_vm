@@ -37,10 +37,3 @@ carcosa.totalpartykill.ca {
         reverse_proxy funkaoshi-randomcarcosa:8002
     }
 }
-
-oci.vqvz.com {
-    request_body {
-        max_size 5MB
-    }
-    reverse_proxy linkding:9090
-}
