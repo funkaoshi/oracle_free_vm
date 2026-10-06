@@ -21,17 +21,23 @@ summon.totalpartykill.ca {
 }
 
 carcosa.totalpartykill.ca {
+    handle /static/* {
+        uri strip_prefix /static
+        header Access-Control-Allow-Origin https://save.vs.totalpartykill.ca
+        root * /srv/carcosa
+        file_server browse
+    }
     handle /1807* {
         root * /srv/carcosa
-        file_server
+        file_server browse
     }
     handle /704-yards* {
         root * /srv/carcosa
-        file_server
+        file_server browse
     }
     handle /sorceress-rituals* {
         root * /srv/carcosa
-        file_server
+        file_server browse
     }
     handle {
         reverse_proxy funkaoshi-randomcarcosa:8002
