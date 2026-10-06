@@ -59,7 +59,9 @@ ufw --force enable
 
 # --- sshd hardening ---------------------------------------------------------
 install -d -m 0755 /etc/ssh/sshd_config.d
-cat >/etc/ssh/sshd_config.d/99-hardening.conf <<'EOF'
+# sshd keeps the first value it reads for each keyword, and reads these files
+# in lexical order, so this must sort before cloud-init's 50-cloud-init.conf.
+cat >/etc/ssh/sshd_config.d/01-hardening.conf <<'EOF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
