@@ -1,18 +1,15 @@
-[tool.poetry]
+[project]
 name = "oracle-free-vm"
 version = "0.1.0"
 description = "Infrastructure code for my hosted projects."
-authors = ["Ramanan Sivaranjan <ramanan@funkaoshi.com>"]
+authors = [{ name = "Ramanan Sivaranjan", email = "ramanan@funkaoshi.com" }]
 readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
 
-[tool.poetry.dependencies]
-python = "^3.11"
-
-[tool.poetry.group.dev.dependencies]
-black = "~24"
-ruff = "*"
-pre-commit = "~3"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+dev = [
+    "black~=24.0",
+    "ruff",
+    "pre-commit~=3.0",
+]
