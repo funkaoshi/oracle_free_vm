@@ -17,12 +17,13 @@ REMOTE_DIR="oracle_free_vm"
 
 case "${1:-}" in
   bootstrap)
-    scp bootstrapping/phase1-bootstrap.sh bootstrapping/.env "${PUBLIC_HOST}:~"
-    ssh "${PUBLIC_HOST}" 'set -a; source ~/.env; set +a; sudo -E bash ~/phase1-bootstrap.sh'
+    scp bootstrapping/phase1-bootstrap.sh "${PUBLIC_HOST}:~"
+    scp bootstrapping/.env "${PUBLIC_HOST}:~/bootstrap.env"
+    ssh "${PUBLIC_HOST}" 'sudo bash ~/phase1-bootstrap.sh ~/bootstrap.env; rc=$?; rm -f ~/bootstrap.env; exit $rc'
     ;;
   harden)
     scp bootstrapping/phase2-harden.sh "${TS_HOST}:~"
-    ssh "${TS_HOST}" 'sudo -E bash ~/phase2-harden.sh'
+    ssh "${TS_HOST}" 'sudo bash ~/phase2-harden.sh "$SSH_CONNECTION"'
     ;;
   init)
     ssh "${TS_HOST}" "mkdir -p ${REMOTE_DIR}"

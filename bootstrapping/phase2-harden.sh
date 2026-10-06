@@ -3,10 +3,14 @@
 # output). Must be invoked over Tailscale -- refuses to run if the current
 # SSH session came in over the public interface, to avoid self-lockout.
 # Safe to re-run.
+#
+# Usage: sudo bash phase2-harden.sh "$SSH_CONNECTION"
+# The connection string is passed as an argument because sudo-rs doesn't
+# carry SSH_CONNECTION through to root's environment.
 set -euo pipefail
 
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "Run as root (sudo $0)" >&2
+  echo "Run as root (sudo $0 \"\$SSH_CONNECTION\")" >&2
   exit 1
 fi
 
@@ -16,19 +20,24 @@ if ! systemctl is-active --quiet tailscaled; then
   exit 1
 fi
 
-if [[ -n "${SSH_CONNECTION:-}" ]]; then
-  SRC_IP="$(awk '{print $1}' <<<"${SSH_CONNECTION}")"
-  case "${SRC_IP}" in
-    100.*|fd7a:115c:a1e0:*)
-      ;; # came in over the Tailscale CGNAT range, proceed
-    *)
-      echo "Refusing to run: this SSH session (${SRC_IP}) did not come in" >&2
-      echo "over the Tailscale range (100.64.0.0/10 / fd7a:115c:a1e0::/48)." >&2
-      echo "Reconnect via 'ssh ubuntu@<tailscale-hostname>' and retry." >&2
-      exit 1
-      ;;
-  esac
+CONN="${1:-${SSH_CONNECTION:-}}"
+if [[ -z "${CONN}" ]]; then
+  echo "Refusing to run: can't tell how you're connected." >&2
+  echo "Run it via './deploy.sh harden', or pass \"\$SSH_CONNECTION\" as the first argument." >&2
+  exit 1
 fi
+
+SRC_IP="${CONN%% *}"
+case "${SRC_IP}" in
+  100.*|fd7a:115c:a1e0:*)
+    ;; # came in over the Tailscale CGNAT range, proceed
+  *)
+    echo "Refusing to run: this SSH session (${SRC_IP}) did not come in" >&2
+    echo "over the Tailscale range (100.64.0.0/10 / fd7a:115c:a1e0::/48)." >&2
+    echo "Reconnect via 'ssh ubuntu@<tailscale-hostname>' and retry." >&2
+    exit 1
+    ;;
+esac
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update

@@ -3,11 +3,22 @@
 # access). Installs Tailscale and Docker. Does NOT touch the firewall or
 # sshd -- the current public SSH path must keep working until Tailscale
 # access is verified. Safe to re-run.
+#
+# Usage: sudo bash phase1-bootstrap.sh <env-file>
 set -euo pipefail
 
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "Run as root (sudo $0)" >&2
+  echo "Run as root (sudo $0 <env-file>)" >&2
   exit 1
+fi
+
+# Read the env file here rather than relying on sudo to pass variables
+# through: sudo-rs (Ubuntu's default sudo since 25.10) drops them.
+if [[ -n "${1:-}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$1"
+  set +a
 fi
 
 TAILSCALE_HOSTNAME="${TAILSCALE_HOSTNAME:-oci-vqvz}"
@@ -26,7 +37,7 @@ fi
 if tailscale status --json 2>/dev/null | grep -q '"BackendState":"Running"'; then
   echo "Already joined to a tailnet; skipping auth-key login."
 else
-  : "${TAILSCALE_AUTHKEY:?Set TAILSCALE_AUTHKEY (source bootstrapping/.env) before running this script}"
+  : "${TAILSCALE_AUTHKEY:?No TAILSCALE_AUTHKEY; pass the env file as the first argument}"
   tailscale up --authkey="${TAILSCALE_AUTHKEY}" \
                --hostname="${TAILSCALE_HOSTNAME}" \
                --ssh \
