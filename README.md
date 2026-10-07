@@ -16,7 +16,8 @@ single Ubuntu VPS.
 bootstrapping/
   phase1-bootstrap.sh   installs Tailscale + Docker, run once over the public IP
   phase2-harden.sh      firewall + sshd hardening + fail2ban + auto-updates, run once over Tailscale
-  .env.example          template for the Tailscale auth key
+  phase3-monitor.sh     vps-check health and security alerts, run once over Tailscale
+  .env.example          template for the Tailscale auth key and monitoring settings
 docker/
   docker-compose.yml       production stack
   docker-compose-dev.yml   same stack for local development
@@ -24,7 +25,7 @@ docker/
   Caddyfile.dev            local routing (*.local hostnames)
   compose.service          systemd unit so the stack comes up on boot
   Makefile                 up/down + caddy reload helpers
-deploy.sh                  bootstrap / harden / init / deploy / ssh, from your laptop
+deploy.sh                  bootstrap / harden / monitor / init / deploy / ssh, from your laptop
 ```
 
 ## What actually runs
@@ -164,7 +165,27 @@ If you only changed the `Caddyfile` and don't want to restart every
 container, `make reload-caddy` (over `./deploy.sh ssh`, from `~/oracle_free_vm/docker`)
 sends Caddy a reload signal instead.
 
-## 6. Local development
+## 6. Monitoring
+
+- **vps-check** runs on the box every 5 minutes from a systemd timer and
+  pushes to [ntfy](https://ntfy.sh) when it sees SSH logins, fail2ban bans,
+  failed systemd units, stopped or restarting containers, a site in the
+  `Caddyfile` not answering over HTTPS, unattended-upgrades errors, a reboot pending for over a day, the root disk over 90% full, or
+  less than 10% of memory available. Persistent problems alert once, and
+  again when they clear. Fill in `NTFY_TOPIC` and `HC_PING_URL` in
+  `bootstrapping/.env`, then:
+
+  ```sh
+  ./deploy.sh monitor
+  ```
+
+  Expect an "SSH login" push after every `./deploy.sh` run;
+  that's the point.
+- **[Healthchecks.io](https://healthchecks.io)** catches what a script on
+  the box can't: a check (period 5m, grace 10m) receives vps-check's
+  heartbeat and alerts if the box, its network or the timer dies.
+
+## 7. Local development
 
 `docker-compose-dev.yml` runs the same images behind `Caddyfile.dev`, which
 uses `.local` hostnames. Add them to `/etc/hosts`:
@@ -188,8 +209,9 @@ Differences from production: no `caddy-data` / `caddy-config` volumes.
 
 ## Secrets kept out of git
 
-The only secret is `bootstrapping/.env` (the Tailscale auth key), which
-`.gitignore` covers.
+The only secrets are in `bootstrapping/.env` (the Tailscale auth key, the
+ntfy topic and the Healthchecks.io URL), which `.gitignore` covers. On the
+box, vps-check reads its copy from `/etc/vps-monitor.env` (root, 0600).
 
 ## Adding another app
 

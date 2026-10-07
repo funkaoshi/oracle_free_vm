@@ -21,7 +21,7 @@ config-management frameworks. Plain, idempotent shell scripts plus
 - SSH is reachable **only over Tailscale** (UFW allows 22 from
   `100.64.0.0/10` / `fd7a:115c:a1e0::/48`). 80/443 are public.
 - This Claude sandbox is not on the tailnet and has no SSH key, so it cannot
-  reach the box. The user runs `./deploy.sh <bootstrap|harden|init|deploy|ssh>`
+  reach the box. The user runs `./deploy.sh <bootstrap|harden|monitor|init|deploy|ssh>`
   from their Mac. Make the change, commit when asked, and hand off the command.
 - `phase2-harden.sh` refuses to run unless the session came in over
   Tailscale. Never weaken or bypass that guard: it's what prevents locking
@@ -57,8 +57,10 @@ config-management frameworks. Plain, idempotent shell scripts plus
   `curl --noproxy '*' --resolve carcosa.local:443:127.0.0.1 -sk https://carcosa.local/`
   (quote the `*`).
 - Python tooling (black, ruff, pre-commit) is managed with **uv**, not poetry.
-- Secrets stay out of git: `bootstrapping/.env` (Tailscale auth key).
+- Secrets stay out of git: `bootstrapping/.env` (Tailscale auth key, ntfy topic, Healthchecks URL).
   `docker/data/` is leftover linkding data, including a secret key. It's
   gitignored; never stage it.
 - Run `bash -n` on any shell script you change.
+- vps-check (installed by `phase3-monitor.sh`) detects logins from the
+  journal, deliberately not via PAM, so a bug in it can't block SSH.
 - Commit messages: one short sentence ending in a period, optional body.

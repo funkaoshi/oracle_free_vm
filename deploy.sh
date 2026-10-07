@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Usage: ./deploy.sh <bootstrap|harden|init|deploy|ssh>
+# Usage: ./deploy.sh <bootstrap|harden|monitor|init|deploy|ssh>
 #
 #   bootstrap  Phase 1 over the public IP: installs Tailscale + Docker.
 #              Run once per fresh VPS. Safe to re-run.
 #   harden     Phase 2 over Tailscale: firewall, sshd hardening, fail2ban,
 #              unattended-upgrades. Run once Tailscale SSH is verified.
+#   monitor    Phase 3 over Tailscale: installs vps-check, which pushes
+#              health and security alerts to ntfy. Safe to re-run.
 #   init       First-time sync of docker/ and install of the systemd unit.
 #   deploy     Sync docker/ and restart the stack. Use for every later change.
 #   ssh        Open an interactive shell on the box over Tailscale.
@@ -25,6 +27,11 @@ case "${1:-}" in
     scp bootstrapping/phase2-harden.sh "${TS_HOST}:~"
     ssh "${TS_HOST}" 'sudo bash ~/phase2-harden.sh "$SSH_CONNECTION"'
     ;;
+  monitor)
+    scp bootstrapping/phase3-monitor.sh "${TS_HOST}:~"
+    scp bootstrapping/.env "${TS_HOST}:~/monitor.env"
+    ssh "${TS_HOST}" 'sudo bash ~/phase3-monitor.sh ~/monitor.env; rc=$?; rm -f ~/monitor.env; exit $rc'
+    ;;
   init)
     ssh "${TS_HOST}" "mkdir -p ${REMOTE_DIR}"
     rsync -az docker/ "${TS_HOST}:${REMOTE_DIR}/docker/"
@@ -42,7 +49,7 @@ case "${1:-}" in
     ssh "${TS_HOST}"
     ;;
   *)
-    echo "Usage: $0 <bootstrap|harden|init|deploy|ssh>" >&2
+    echo "Usage: $0 <bootstrap|harden|monitor|init|deploy|ssh>" >&2
     exit 1
     ;;
 esac
