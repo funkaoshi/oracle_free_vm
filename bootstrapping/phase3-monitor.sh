@@ -22,10 +22,12 @@ fi
 
 : "${NTFY_TOPIC:?No NTFY_TOPIC; pass the env file as the first argument}"
 HC_PING_URL="${HC_PING_URL:-}"
+ALERT_TZ="${ALERT_TZ:-}"
 
 # --- Secrets for vps-check -------------------------------------------------
 install -m 0600 -o root -g root /dev/null /etc/vps-monitor.env
-printf 'NTFY_TOPIC=%q\nHC_PING_URL=%q\n' "${NTFY_TOPIC}" "${HC_PING_URL}" >/etc/vps-monitor.env
+printf 'NTFY_TOPIC=%q\nHC_PING_URL=%q\nALERT_TZ=%q\n' \
+  "${NTFY_TOPIC}" "${HC_PING_URL}" "${ALERT_TZ}" >/etc/vps-monitor.env
 
 # --- vps-check -------------------------------------------------------------
 cat >/usr/local/sbin/vps-check <<'EOF'
@@ -37,6 +39,8 @@ set -uo pipefail
 
 # shellcheck disable=SC1091
 source /etc/vps-monitor.env
+# Times in alerts are in ALERT_TZ if set, otherwise the box's own zone.
+[[ -n "${ALERT_TZ:-}" ]] && export TZ="${ALERT_TZ}"
 
 STATE=/var/lib/vps-check
 HOST="$(hostname)"
@@ -64,15 +68,20 @@ condition() { # <name> <priority> <message>
   fi
 }
 
-journal() { # bare messages from the window since the last run
-  journalctl -q -o cat --no-pager --since "@${SINCE}" --until "@${NOW}" "$@"
+journal() { # "<epoch> <message>" for entries in the window since the last run
+  journalctl -q -o short-unix --no-pager --since "@${SINCE}" --until "@${NOW}" "$@" |
+    sed -E 's/^([0-9]+)\.[0-9]+ [^ ]+ [^ ]+: /\1 /'
 }
 
 # --- Persistent conditions -------------------------------------------------
 failed="$(systemctl --failed --no-legend --plain | awk '{print $1}' | paste -sd' ')"
 condition "Failed units" high "${failed:+Failed: ${failed}}"
 
-stopped="$(docker ps -a --format '{{.Names}} ({{.State}})' | grep -v '(running)$' | paste -sd' ')"
+# One-shot jobs (restart: "no", e.g. Drambuie's migrate) that exited 0 are done, not down.
+# shellcheck disable=SC2046  # container IDs are meant to split
+stopped="$(docker inspect --format '{{.Name}} {{.State.Status}} {{.State.ExitCode}} {{.HostConfig.RestartPolicy.Name}}' $(docker ps -aq) 2>/dev/null |
+  awk '$2 != "running" && !($2 == "exited" && $3 == 0 && $4 == "no") {sub("^/", "", $1); printf "%s (%s) ", $1, $2}')"
+stopped="${stopped% }"
 condition "Containers down" high "${stopped:+Not running: ${stopped}}"
 
 disk="$(df --output=pcent / | tail -1 | tr -dc '0-9')"
@@ -97,17 +106,26 @@ done
 condition "Sites down" high "${down:+${down% }}"
 
 # --- Events since the last run ---------------------------------------------
-# One line per user and machine, e.g. "ubuntu from mac-mini (me@example.com) ×3".
+# Logins in time order, one line per burst from the same user and machine,
+# e.g. "20:57 ubuntu from mac-mini (me@example.com) ×3". deploy.sh tags each
+# run in the journal, so "20:57 deploy.sh deploy" follows the logins it made.
 # sshd only logs an IP, so name it from `tailscale status` where possible.
 logins="$(
   {
-    journal -t sshd -t sshd-session -t sshd-auth | grep '^Accepted ' |
+    journal -t sshd -t sshd-session -t sshd-auth | awk '$2 == "Accepted"' |
       awk 'FILENAME != "-" {name[$1] = $2; next}
-           {print $4 " from " ($6 in name ? name[$6] : $6) " (OpenSSH)"}' \
+           {print $1, $5 " from " ($7 in name ? name[$7] : $7) " (OpenSSH)"}' \
         <(tailscale status 2>/dev/null) -
-    journal -u tailscaled | grep '^audit: SSH login:' |
-      sed -E 's/.* user=([^ ]+).* ts_user=([^ ]+) node=([^. ]+).*/\1 from \3 (\2)/'
-  } | sort | uniq -c | awk '{n = $1; sub(/^ *[0-9]+ /, ""); print $0 (n > 1 ? " ×" n : "")}'
+    journal -u tailscaled | grep -E '^[0-9]+ audit: SSH login:' |
+      sed -E 's/^([0-9]+) .* user=([^ ]+).* ts_user=([^ ]+) node=([^. ]+).*/\1 \2 from \4 (\3)/'
+    journal -t deploy.sh | sed -E 's/^([0-9]+) /\1 deploy.sh /'
+  } | sort -s -n -k1,1 | while read -r t event; do
+    echo "$(date -d "@${t}" +%H:%M) ${event}"
+  done | awk 'function flush() { if (n) print first " " prev (n > 1 ? " ×" n : "") }
+              { t = $1; sub(/^[^ ]+ /, "") }
+              $0 != prev { flush(); first = t; prev = $0; n = 0 }
+              { n++ }
+              END { flush() }'
 )"
 [[ -n "${logins}" ]] && notify default "SSH login" "${logins}"
 

@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Hosts a few small personal sites (`character`, `summon`, `carcosa` on
-`totalpartykill.ca`) with Docker Compose + Caddy on a single OVH VPS. See
+`totalpartykill.ca`, plus Drambuie on `drambuie.vqvz.com`) with Docker Compose + Caddy on a single OVH VPS. See
 `README.md` for the full setup and deploy flow.
 
 The repo name is historical: it used to target Oracle Cloud via Terraform.
@@ -43,6 +43,11 @@ config-management frameworks. Plain, idempotent shell scripts plus
 - **Container ports must match the Caddyfile**: randomcharacter 8000,
   lotfp-summon 8001, randomcarcosa 8002. The fix belongs in the app repo if
   an image changes its port.
+- **Drambuie is a separate compose project** (`tiff` repo, `~/drambuie`
+  on the box, `drambuie.vqvz.com`). This stack's `caddy` depends on its
+  external `drambuie-edge` network and `drambuie_media` volume; if
+  either is missing, `caddy` fails to start and takes every site down. See
+  README "Drambuie" and `DRAMBUIE-DEPLOY.md`.
 - Carcosa's `/static/*` needs the `Access-Control-Allow-Origin:
   https://save.vs.totalpartykill.ca` header, which another site depends on.
 

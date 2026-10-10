@@ -35,13 +35,14 @@ deploy.sh                  bootstrap / harden / monitor / init / deploy / ssh, f
 | `character.totalpartykill.ca` | `funkaoshi/randomcharacter`   | 8000 | `/static/*` from `character-volume` |
 | `summon.totalpartykill.ca`    | `funkaoshi/lotfp-summon`      | 8001 | `/static/*` from `summon-volume` |
 | `carcosa.totalpartykill.ca`   | `funkaoshi/randomcarcosa`     | 8002 | `/1807*`, `/704-yards*`, `/sorceress-rituals*` from `carcosa-volume` |
+| `drambuie.vqvz.com`           | `drambuie` (separate stack, see below) | 8000 | `/media/*` from `drambuie_media` |
 
 Each app image ships its own static assets and mounts a named volume at
 `/app/static`; Caddy mounts the same volume at `/srv/<app>` and serves those
 paths itself, so requests for static content never reach the app process.
 
-`character.totalpartykill.ca`, `summon.totalpartykill.ca`, and
-`carcosa.totalpartykill.ca` are DNS aliases (CNAMEs) of `oci.vqvz.com` — only
+`character.totalpartykill.ca`, `summon.totalpartykill.ca`,
+`carcosa.totalpartykill.ca` and `drambuie.vqvz.com` are DNS aliases (CNAMEs) of `oci.vqvz.com` — only
 `oci.vqvz.com`'s A/AAAA records need to point at the box. Nothing is served
 at `oci.vqvz.com` itself.
 
@@ -180,7 +181,16 @@ sends Caddy a reload signal instead.
   ```
 
   Expect an "SSH login" push after every `./deploy.sh` run;
-  that's the point.
+  that's the point. Each login is listed with its time (in `ALERT_TZ`
+  if set), and `deploy.sh` tags its runs on the box, so a push like this
+  is yours:
+
+  ```
+  20:57 ubuntu from ramanans-mac-mini (funkaoshi@me.com) ×3
+  20:57 deploy.sh deploy
+  ```
+
+  A login with no `deploy.sh` line after it came from something else.
 - **[Healthchecks.io](https://healthchecks.io)** catches what a script on
   the box can't: a check (period 5m, grace 10m) receives vps-check's
   heartbeat and alerts if the box, its network or the timer dies.
@@ -225,6 +235,40 @@ box, vps-check reads its copy from `/etc/vps-monitor.env` (root, 0600).
    stripping the prefix and serving from `/srv/<app>`, then a catch-all
    `handle` reverse proxying to the container.
 5. Point DNS at the box, then `./deploy.sh deploy`.
+
+## Drambuie (a separate stack behind this Caddy)
+
+Drambuie (the `tiff` repo) doesn't follow the "Adding another app" pattern
+above: it builds from source, runs a migration job and a reminders sidecar,
+and keeps a live SQLite database with its own backup tooling. So it runs as
+its own compose project in `~/drambuie` on the box, outside
+`deploy.sh`, and this repo only routes to it:
+
+- the `caddy` service joins the external `drambuie-edge` network, where the
+  app answers as `drambuie:8000`;
+- `caddy` mounts the external `drambuie_media` volume read-only at
+  `/srv/drambuie` and serves `/media/*` from it.
+
+Both are created by the Drambuie side, so **they must exist before this
+stack starts**, or `caddy` won't come up and every site goes down with it.
+First-time setup, over `./deploy.sh ssh`:
+
+```sh
+docker network create --subnet 172.31.243.0/24 drambuie-edge
+git clone git@github.com:funkaoshi/drambuie.git drambuie && cd drambuie   # needs a deploy key, see DRAMBUIE-DEPLOY.md
+cp .env.example .env   # see below
+docker compose up -d --build
+```
+
+In `.env`: `COMPOSE_FILE=compose.yml:compose.vps.yml`,
+`SITE_ADDRESS=drambuie.vqvz.com`, `ACME_EMAIL` (any value — required by
+compose even though Drambuie's own Caddy never starts), `ADMIN_EMAIL`,
+`APP_TZ`, and `MAILER=smtp` with the `SMTP_*` values.
+
+Then `./deploy.sh deploy` from here. Updating Drambuie later is
+`cd ~/drambuie && git pull && docker compose up -d --build`, and its
+backups are its own cron jobs (`tiff/README.md`, "Automated backups").
+`DRAMBUIE-DEPLOY.md` has the full runbook and verification steps.
 
 ## Rough edges
 

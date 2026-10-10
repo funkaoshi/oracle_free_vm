@@ -4,6 +4,16 @@ volumes:
   summon-volume:
   caddy-data:
   caddy-config:
+  # Owned by the separate Drambuie stack (~/drambuie on the box).
+  drambuie-media:
+    external: true
+    name: drambuie_media
+
+networks:
+  # Created once by hand; shared with the Drambuie stack, owned by neither.
+  drambuie-edge:
+    external: true
+    name: drambuie-edge
 
 services:
   caddy:
@@ -19,6 +29,10 @@ services:
       - carcosa-volume:/srv/carcosa
       - character-volume:/srv/character
       - summon-volume:/srv/summon
+      - drambuie-media:/srv/drambuie:ro
+    networks:
+      - default
+      - drambuie-edge
     depends_on:
       - funkaoshi-randomcharacter
       - funkaoshi-lotfp-summon
