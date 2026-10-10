@@ -47,7 +47,7 @@ config-management frameworks. Plain, idempotent shell scripts plus
   on the box, `drambuie.vqvz.com`). This stack's `caddy` depends on its
   external `drambuie-edge` network and `drambuie_media` volume; if
   either is missing, `caddy` fails to start and takes every site down. See
-  README "Drambuie" and `DRAMBUIE-DEPLOY.md`.
+  README "Drambuie". `docker-compose-dev.yml` deliberately leaves it out.
 - Carcosa's `/static/*` needs the `Access-Control-Allow-Origin:
   https://save.vs.totalpartykill.ca` header, which another site depends on.
 

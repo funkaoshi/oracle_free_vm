@@ -47,7 +47,8 @@ paths itself, so requests for static content never reach the app process.
 at `oci.vqvz.com` itself.
 
 Locally the same services answer on `character.local`, `summon.local` and
-`carcosa.local`.
+`carcosa.local`. Drambuie isn't part of the dev stack; run it from its own
+repo with `make dev`.
 
 ## Access model
 
@@ -150,6 +151,9 @@ unit, which pulls images and brings the stack up (and back up on reboot).
 Caddy keeps its certificates and state in the `caddy-data` / `caddy-config`
 volumes, so they survive a recreate.
 
+On a fresh box, Drambuie has to be up first, or `caddy` won't start. See
+[Drambuie](#drambuie-a-separate-stack-behind-this-caddy).
+
 ## 5. Deploying changes
 
 Whenever an app image, the `Caddyfile`, or anything else under `docker/`
@@ -238,37 +242,42 @@ box, vps-check reads its copy from `/etc/vps-monitor.env` (root, 0600).
 
 ## Drambuie (a separate stack behind this Caddy)
 
-Drambuie (the `tiff` repo) doesn't follow the "Adding another app" pattern
-above: it builds from source, runs a migration job and a reminders sidecar,
-and keeps a live SQLite database with its own backup tooling. So it runs as
-its own compose project in `~/drambuie` on the box, outside
-`deploy.sh`, and this repo only routes to it:
+Drambuie (`git@github.com:funkaoshi/drambuie.git`, checked out locally as
+`tiff/`) is served at `drambuie.vqvz.com`, but it isn't one of this repo's
+apps. It builds from source, runs a migration job and a reminders sidecar,
+and keeps a live SQLite database with its own backups, none of which fit
+"Adding another app" or `deploy.sh`. So it's its own compose project,
+`drambuie`, in `~/drambuie` on the box, updated from there with `git pull
+&& docker compose up -d --build`. Its README's "Production" section covers
+running it.
 
-- the `caddy` service joins the external `drambuie-edge` network, where the
-  app answers as `drambuie:8000`;
+This repo only routes to it:
+
+- `caddy` joins the external `drambuie-edge` network (`172.31.243.0/24`),
+  where the app answers as `drambuie:8000`. Nothing else should join that
+  network: the app trusts `X-Forwarded-For` from the whole subnet.
 - `caddy` mounts the external `drambuie_media` volume read-only at
   `/srv/drambuie` and serves `/media/*` from it.
 
-Both are created by the Drambuie side, so **they must exist before this
-stack starts**, or `caddy` won't come up and every site goes down with it.
-First-time setup, over `./deploy.sh ssh`:
+Both belong to the Drambuie side. **If either is missing, `caddy` won't
+start, and every site on the box goes down with it.** So on a rebuilt box,
+bring Drambuie up before `./deploy.sh init`:
 
 ```sh
 docker network create --subnet 172.31.243.0/24 drambuie-edge
-git clone git@github.com:funkaoshi/drambuie.git drambuie && cd drambuie   # needs a deploy key, see DRAMBUIE-DEPLOY.md
-cp .env.example .env   # see below
+git clone git@github.com:funkaoshi/drambuie.git drambuie && cd drambuie
+# put back .env (not in git), then:
 docker compose up -d --build
+# restore the data: Drambuie README, "Restoring"
 ```
 
-In `.env`: `COMPOSE_FILE=compose.yml:compose.vps.yml`,
-`SITE_ADDRESS=drambuie.vqvz.com`, `ACME_EMAIL` (any value — required by
-compose even though Drambuie's own Caddy never starts), `ADMIN_EMAIL`,
-`APP_TZ`, and `MAILER=smtp` with the `SMTP_*` values.
+`git clone`/`git pull` on the box need GitHub access: a read-only deploy key
+there, or `ssh -A` from the laptop.
 
-Then `./deploy.sh deploy` from here. Updating Drambuie later is
-`cd ~/drambuie && git pull && docker compose up -d --build`, and its
-backups are its own cron jobs (`tiff/README.md`, "Automated backups").
-`DRAMBUIE-DEPLOY.md` has the full runbook and verification steps.
+vps-check covers it like any other site: it's a site block in `Caddyfile`,
+and its containers count toward "Containers down". The one exception is
+Drambuie's `migrate`, which runs once and exits. Containers with
+`restart: "no"` that exited 0 are treated as finished, not down.
 
 ## Rough edges
 
